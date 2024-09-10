@@ -1,52 +1,45 @@
 import streamlit as st
+from yahooquery import Screener
 import yfinance as yf
-from yahoo_fin import stock_info as si
-import requests
-import pandas as pd
 
+# Streamlit 앱 제목
 st.title("커뮤니티 인기 종목과 트렌드 주식 급등주 분석")
 
 # 야후 파이낸스 트렌드 주식
-trending_stocks = si.get_day_most_active()
-trending_symbols = trending_stocks['Symbol'].head(5).tolist()
 st.subheader("야후 파이낸스 트렌드 주식 상위 5개")
-st.dataframe(trending_stocks[['Symbol', 'Name', 'Price (Intraday)', 'Volume']].head(5))
 
-# StockTwits 인기 종목
-url = "https://api.stocktwits.com/api/2/trending/symbols.json"
-response = requests.get(url)
-data = response.json()
-stocktwits_symbols = [symbol['symbol'] for symbol in data['symbols'][:5]]
-st.subheader("StockTwits에서 인기 있는 종목 상위 5개")
-for symbol in stocktwits_symbols:
-    st.write(symbol)
+# Yahoo Finance 스크리너를 통해 트렌드 주식 가져오기
+screener = Screener()
+data = screener.get_screeners('day_gainers', count=5)
 
-# Reddit 인기 종목 (수동으로 입력, API 사용하지 않음)
-reddit_symbols = ['GME', 'AMC', 'TSLA', 'AAPL', 'MSFT']  # 예시로 수동 입력한 인기 종목
-st.subheader("Reddit에서 인기 있는 종목 (수동)")
-for symbol in reddit_symbols:
-    st.write(symbol)
+# 트렌드 종목 추출
+if 'day_gainers' in data and 'quotes' in data['day_gainers']:
+    trending_stocks = data['day_gainers']['quotes']
+    trending_symbols = [stock['symbol'] for stock in trending_stocks]
 
-# 종목 합치기
-all_symbols = list(set(trending_symbols + stocktwits_symbols + reddit_symbols))
+    # 종목 리스트 출력
+    for symbol in trending_symbols:
+        st.write(symbol)
 
-# 급등주 분석 함수
-def analyze_stocks(symbols):
-    hot_stocks = []
-    for symbol in symbols:
-        stock_data = yf.download(symbol, period="1y")
-        if not stock_data.empty:
-            # 급등 조건 분석 로직 추가 (52주 신고가, 볼린저 밴드, 거래량 등)
-            hot_stocks.append(symbol)
-    return hot_stocks
+    # 급등주 분석 함수
+    def analyze_stocks(symbols):
+        hot_stocks = []
+        for symbol in symbols:
+            stock_data = yf.download(symbol, period="1y")
+            if not stock_data.empty:
+                # 52주 신고가, 거래량 급등 분석 로직을 여기에 추가
+                hot_stocks.append(symbol)
+        return hot_stocks
 
-# 급등주 분석 결과
-st.subheader("커뮤니티 인기 종목 중 급등주 추천")
-hot_stocks = analyze_stocks(all_symbols)
+    # 급등주 분석 결과
+    st.subheader("커뮤니티 인기 종목 중 급등주 추천")
+    hot_stocks = analyze_stocks(trending_symbols)
 
-if hot_stocks:
-    st.write("급등주 추천 목록:")
-    for stock in hot_stocks:
-        st.write(stock)
+    if hot_stocks:
+        st.write("급등주 추천 목록:")
+        for stock in hot_stocks:
+            st.write(stock)
+    else:
+        st.write("급등주가 없습니다.")
 else:
-    st.write("급등주가 없습니다.")
+    st.write("데이터를 가져오지 못했습니다. 나중에 다시 시도하세요.")
